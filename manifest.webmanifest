@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "알바 타이머",
+  "short_name": "알바 타이머",
+  "description": "일하는 시간만큼 쌓이는 나의 급여",
+  "lang": "ko-KR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111715",
+  "theme_color": "#111715",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

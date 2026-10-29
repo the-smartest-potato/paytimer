@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111715">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="알바 타이머">
+  <title>알바 급여 타이머</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" type="image/png" href="icon-180.png">
+  <style>
+    :root { color-scheme: dark light; --bg:#111715; --card:#1b2420; --field:#111a16; --text:#f3f7f4; --muted:#a2b3a9; --line:#33443a; --accent:#a6efb5; --ink:#122618; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+    button,input { font:inherit; }
+    button { min-height:48px; cursor:pointer; touch-action:manipulation; border:0; }
+    button:focus-visible,input:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    button:disabled { opacity:.4; cursor:default; }
+    [hidden] { display:none !important; }
+    main { width:min(100%,480px); margin:auto; min-height:100svh; padding:calc(24px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); display:flex; flex-direction:column; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    h1 { font-size:18px; letter-spacing:-.6px; margin:0; font-weight:700; }
+    .tag { color:var(--muted); font-size:11px; letter-spacing:1.5px; }
+    .earnings { text-align:center; padding:44px 0 36px; flex:1; display:flex; flex-direction:column; justify-content:center; }
+    .status { display:flex; justify-content:center; align-items:center; gap:7px; color:var(--muted); font-size:13px; }
+    .dot { width:6px; height:6px; border-radius:50%; background:var(--muted); }
+    .running .dot { background:var(--accent); box-shadow:0 0 12px #a6efb555; }
+    .money { display:block; margin:20px 0 12px; font-size:clamp(36px,12vw,64px); font-weight:800; line-height:1.15; letter-spacing:-2.5px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .per-second { color:var(--accent); font-size:13px; margin:0; }
+    .time { margin-top:27px; color:var(--muted); font-size:18px; font-variant-numeric:tabular-nums; letter-spacing:2px; }
+    .time-label { display:block; font-size:10px; letter-spacing:.6px; margin-bottom:8px; }
+    .card { padding:18px; background:var(--card); border:1px solid var(--line); border-radius:22px; }
+    .segments { padding:4px; border-radius:13px; background:var(--field); display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; margin-bottom:20px; }
+    .segments button { color:var(--muted); background:transparent; border-radius:10px; font-size:14px; font-weight:600; }
+    .segments button[aria-pressed="true"] { background:var(--accent); color:var(--ink); }
+    .fields { display:grid; gap:15px; }
+    label { display:block; color:var(--muted); font-size:12px; }
+    .input-wrap { display:flex; align-items:center; gap:10px; margin-top:7px; background:var(--field); border:1px solid var(--line); border-radius:12px; padding:0 14px; }
+    input { width:100%; min-width:0; min-height:52px; border:0; background:transparent; color:var(--text); font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; border-radius:8px; }
+    input::placeholder { color:var(--muted); opacity:.65; font-weight:400; }
+    .unit { flex-shrink:0; color:var(--muted); font-size:13px; }
+    .derived { margin:17px 0 0; color:var(--muted); font-size:12px; line-height:1.6; }
+    .summary { display:flex; width:100%; justify-content:space-between; align-items:center; gap:10px; background:var(--card); color:var(--text); text-align:left; padding:17px 18px; border:1px solid var(--line); border-radius:18px; }
+    .summary strong { display:block; font-size:15px; margin-top:5px; }
+    .summary small { color:var(--muted); font-size:11px; }
+    .summary:disabled { opacity:1; cursor:default; }
+    .edit { color:var(--accent); font-size:12px; flex-shrink:0; }
+    .actions { margin-top:18px; display:grid; grid-template-columns:minmax(0,1fr) 86px; gap:10px; }
+    .primary { background:var(--accent); color:var(--ink); border-radius:16px; font-weight:750; font-size:17px; min-height:58px; }
+    .secondary { color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:16px; font-size:14px; }
+    .confirm { margin-top:12px; padding:15px; border:1px solid var(--line); border-radius:16px; background:var(--card); }
+    .confirm p { font-size:13px; line-height:1.6; margin:0 0 10px; }
+    .confirm-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .confirm button { border-radius:10px; }
+    footer { text-align:center; color:var(--muted); font-size:10px; line-height:1.7; margin-top:20px; }
+    #storage-note { font-size:12px; color:var(--muted); line-height:1.6; }
+    @media(prefers-color-scheme:light) { :root { --bg:#f5f7f3; --card:#fff; --field:#f1f5ef; --text:#17241c; --muted:#637468; --line:#dbe4d8; --accent:#267b40; --ink:#fff; } }
+    @media(max-height:740px) { .earnings { padding:28px 0; } .money { margin-top:14px; } .time { margin-top:19px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header><h1>알바 급여 타이머</h1><span class="tag">TIME IS MONEY</span></header>
+  <section class="earnings" aria-label="현재까지의 급여">
+    <div class="status" role="status"><span class="dot" aria-hidden="true"></span><span id="status">시작할 준비</span></div>
+    <output id="money" class="money" aria-label="누적 급여">₩0</output>
+    <p id="per-second" class="per-second">+ 초당 0.0원</p>
+    <div class="time"><span class="time-label">근무 시간</span><span id="elapsed">00:00:00</span></div>
+  </section>
+  <section id="editor" class="card" aria-label="급여 조건 설정">
+    <div class="segments" role="group" aria-label="급여 계산 방식">
+      <button type="button" data-mode="hourly" aria-pressed="true">시급</button>
+      <button type="button" data-mode="session" aria-pressed="false">회당</button>
+      <button type="button" data-mode="weekly" aria-pressed="false">주 단위</button>
+    </div>
+    <div class="fields" data-fields="hourly">
+      <label>시급<div class="input-wrap"><input id="hourly" inputmode="numeric" data-money placeholder="10,320" autocomplete="off"><span class="unit">원 / 시간</span></div></label>
+    </div>
+    <div class="fields" data-fields="session" hidden>
+      <label>1회 근무 시간(시간)<div class="input-wrap"><input id="sessionHours" inputmode="decimal" placeholder="4" autocomplete="off"><span class="unit">시간</span></div></label>
+      <label>N회 근무 시<div class="input-wrap"><input id="sessions" inputmode="numeric" placeholder="2" autocomplete="off"><span class="unit">회</span></div></label>
+      <label>받는 금액(원)<div class="input-wrap"><input id="sessionPay" inputmode="numeric" data-money placeholder="100,000" autocomplete="off"><span class="unit">원</span></div></label>
+    </div>
+    <div class="fields" data-fields="weekly" hidden>
+      <label>주 근무 시간(시간)<div class="input-wrap"><input id="weeklyHours" inputmode="decimal" placeholder="20" autocomplete="off"><span class="unit">시간</span></div></label>
+      <label>4주 기준 금액(원)<div class="input-wrap"><input id="weeklyPay" inputmode="numeric" data-money placeholder="1,000,000" autocomplete="off"><span class="unit">원</span></div></label>
+    </div>
+    <p id="derived" class="derived" aria-live="polite">급여 조건에 0보다 큰 숫자를 입력해 주세요.</p>
+  </section>
+  <button type="button" id="summary" class="summary" hidden><span><small id="summary-mode">급여 조건</small><strong id="summary-rate"></strong></span><span id="edit-hint" class="edit">조건 수정 ↗</span></button>
+  <div class="actions"><button type="button" id="toggle" class="primary" disabled>시작</button><button type="button" id="reset" class="secondary" disabled>초기화</button></div>
+  <div id="confirm" class="confirm" role="group" aria-label="초기화 확인" hidden><p>근무 시간과 누적 급여를 초기화할까요?<br>입력한 급여 조건은 유지됩니다.</p><div class="confirm-actions"><button type="button" id="cancel-reset" class="secondary">취소</button><button type="button" id="confirm-reset" class="primary">초기화</button></div></div>
+  <p id="storage-note" role="status" hidden>이 브라우저에서 저장할 수 없어 앱을 닫으면 기록이 사라질 수 있어요.</p>
+  <footer>시간이 쌓이면, 급여도 차곡차곡.<br>홈 화면에 추가하면 앱처럼 사용할 수 있어요.</footer>
+</main>
+<script src="rate.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const inputIds = ['hourly', 'sessionHours', 'sessions', 'sessionPay', 'weeklyHours', 'weeklyPay'];
+const names = { hourly:'시급', session:'회당', weekly:'주 단위' };
+const KEY = 'paytimer-state-v1';
+const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits:2 });
+const won = new Intl.NumberFormat('ko-KR', { maximumFractionDigits:0 });
+let mode = 'hourly', accumulatedMs = 0, startedAt = null, editing = true, wakeLock = null, wakePending = false;
+function inputs() { return Object.fromEntries(inputIds.map(id => [id, $(id).value])); }
+function rate() { return PayRate.wonPerSecond(mode, inputs()); }
+function elapsedMs() { return accumulatedMs + (startedAt === null ? 0 : Math.max(0, Date.now() - startedAt)); }
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify({ mode, inputs:inputs(), accumulatedMs, startedAt })); $('storage-note').hidden = true; }
+  catch (_) { $('storage-note').hidden = false; }
+}
+function restore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (!saved || !Object.hasOwn(names, saved.mode)) return;
+    mode = saved.mode;
+    for (const id of inputIds) if (typeof saved.inputs?.[id] === 'string') $(id).value = saved.inputs[id];
+    accumulatedMs = Number.isFinite(saved.accumulatedMs) && saved.accumulatedMs >= 0 ? saved.accumulatedMs : 0;
+    if (Number.isFinite(saved.startedAt) && saved.startedAt > 0 && Number.isFinite(rate())) startedAt = saved.startedAt;
+    editing = startedAt === null && accumulatedMs === 0;
+  } catch (_) { /* An unavailable or damaged save must not prevent a new timer. */ }
+}
+async function syncWakeLock() {
+  if (startedAt === null || document.visibilityState !== 'visible') {
+    if (wakeLock) { const lock = wakeLock; wakeLock = null; try { await lock.release(); } catch (_) {} }
+    return;
+  }
+  if (!navigator.wakeLock || wakeLock || wakePending) return;
+  wakePending = true;
+  try {
+    const lock = await navigator.wakeLock.request('screen');
+    if (startedAt === null || document.visibilityState !== 'visible') await lock.release();
+    else { wakeLock = lock; lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; }); }
+  } catch (_) {} finally { wakePending = false; }
+}
+function paint() {
+  const elapsed = elapsedMs();
+  const seconds = Math.floor(elapsed / 1000);
+  const parts = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60];
+  $('elapsed').textContent = parts.map(n => String(n).padStart(2, '0')).join(':');
+  const perSecond = rate();
+  const earned = Number.isFinite(perSecond) ? Math.floor(elapsed / 1000 * perSecond) : 0;
+  $('money').textContent = '₩' + won.format(earned);
+  $('money').style.fontSize = earned >= 1e9 ? 'clamp(27px, 8vw, 42px)' : '';
+  $('per-second').textContent = '+ 초당 ' + (Number.isFinite(perSecond) ? perSecond.toLocaleString('ko-KR', { minimumFractionDigits:1, maximumFractionDigits:1 }) : '0.0') + '원';
+}
+function render() {
+  const running = startedAt !== null;
+  const hourly = PayRate.hourlyRate(mode, inputs());
+  document.body.classList.toggle('running', running);
+  document.querySelectorAll('[data-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
+  document.querySelectorAll('[data-fields]').forEach(group => { group.hidden = group.dataset.fields !== mode; });
+  $('editor').hidden = !editing;
+  $('summary').hidden = editing;
+  $('summary').disabled = running;
+  $('edit-hint').textContent = running ? '근무 중' : '조건 수정 ↗';
+  $('summary-mode').textContent = names[mode] + ' 기준';
+  $('summary-rate').textContent = Number.isFinite(hourly) ? '환산 시급 ' + number.format(hourly) + '원' : '급여 조건을 입력해 주세요';
+  $('derived').textContent = Number.isFinite(hourly) ? '환산 시급 ' + number.format(hourly) + '원' + (accumulatedMs > 0 && editing ? ' · 변경 시 전체 근무 시간에 적용됩니다.' : '') : '급여 조건에 0보다 큰 숫자를 입력해 주세요.';
+  $('toggle').disabled = !running && !Number.isFinite(rate());
+  $('toggle').textContent = running ? '일시정지' : accumulatedMs > 0 ? '이어서' : '시작';
+  $('reset').disabled = !running && accumulatedMs === 0;
+  $('status').textContent = running ? '급여가 쌓이고 있어요' : accumulatedMs > 0 ? '잠시 쉬는 중' : '시작할 준비';
+  paint();
+}
+document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
+  if (startedAt !== null) return;
+  mode = button.dataset.mode; persist(); render();
+}));
+for (const id of inputIds) $(id).addEventListener('input', event => {
+  const input = event.target;
+  if (input.hasAttribute('data-money')) {
+    const position = input.selectionStart ?? input.value.length;
+    const digitsBefore = input.value.slice(0, position).replace(/,/g, '').length;
+    const raw = input.value.replace(/,/g, '');
+    if (/^\d*$/.test(raw)) {
+      input.value = raw.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      let cursor = 0, seen = 0;
+      while (cursor < input.value.length && seen < digitsBefore) { if (input.value[cursor] !== ',') seen++; cursor++; }
+      input.setSelectionRange(cursor, cursor);
+    }
+  }
+  persist(); render();
+});
+$('toggle').addEventListener('click', () => {
+  if (startedAt !== null) { accumulatedMs = elapsedMs(); startedAt = null; }
+  else { if (!Number.isFinite(rate())) return; startedAt = Date.now(); editing = false; document.activeElement?.blur(); }
+  $('confirm').hidden = true; persist(); render(); void syncWakeLock();
+});
+$('summary').addEventListener('click', () => { if (startedAt === null) { editing = true; render(); document.querySelector('[data-fields="' + mode + '"] input').focus(); } });
+$('reset').addEventListener('click', () => { $('confirm').hidden = false; $('cancel-reset').focus(); });
+$('cancel-reset').addEventListener('click', () => { $('confirm').hidden = true; $('reset').focus(); });
+$('confirm-reset').addEventListener('click', () => {
+  accumulatedMs = 0; startedAt = null; editing = true; $('confirm').hidden = true;
+  persist(); render(); void syncWakeLock(); $('toggle').focus();
+});
+document.addEventListener('visibilitychange', () => { persist(); paint(); void syncWakeLock(); });
+window.addEventListener('pagehide', persist);
+window.addEventListener('pageshow', () => { render(); void syncWakeLock(); });
+restore(); render(); void syncWakeLock();
+setInterval(() => { if (startedAt !== null && document.visibilityState === 'visible') paint(); }, 100);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+</script>
+</body>
+</html>
