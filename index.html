@@ -15,7 +15,7 @@
     :root { color-scheme: dark light; --bg:#111715; --card:#1b2420; --field:#111a16; --text:#f3f7f4; --muted:#a2b3a9; --line:#33443a; --accent:#a6efb5; --ink:#122618; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
-    button,input { font:inherit; }
+    button,input,select { font:inherit; }
     button { min-height:48px; cursor:pointer; touch-action:manipulation; border:0; }
     button:focus-visible,input:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
     button:disabled { opacity:.4; cursor:default; }
@@ -57,18 +57,48 @@
     .confirm button { border-radius:10px; }
     footer { text-align:center; color:var(--muted); font-size:10px; line-height:1.7; margin-top:20px; }
     #storage-note { font-size:12px; color:var(--muted); line-height:1.6; }
+    .saved-jobs { margin-bottom:16px; }
+    .job-list { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+    .job-chip { display:flex; max-width:100%; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+    .job-chip button { background:var(--field); color:var(--text); padding:0 12px; min-width:44px; overflow-wrap:anywhere; }
+    .job-chip button:first-child { min-width:44px; flex:1; text-align:left; }
+    .job-chip button[aria-pressed="true"] { color:var(--accent); font-weight:700; }
+    .job-save { display:flex; gap:8px; align-items:center; }
+    .job-save label { flex:1; min-width:0; }
+    .job-save input { font-size:16px; padding:0 10px; background:var(--field); border:1px solid var(--line); margin-top:5px; }
+    .job-save button { padding:0 12px; flex-shrink:0; align-self:end; min-height:52px; }
+    #finish { width:100%; margin-top:10px; }
+    .header-button { padding:0 16px; }
+    dialog { width:min(calc(100% - 24px),460px); max-height:calc(100svh - 32px); padding:20px; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:22px; overflow-y:auto; overflow-x:hidden; }
+    dialog::backdrop { background:#0009; }
+    dialog header { margin-bottom:16px; }
+    dialog h2 { margin:0; font-size:18px; }
+    select { display:block; width:100%; min-height:48px; margin:8px 0 16px; padding:8px; background:var(--field); color:var(--text); border:1px solid var(--line); border-radius:10px; }
+    .totals { display:grid; gap:8px; margin-bottom:16px; font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+    .record { border-top:1px solid var(--line); padding:14px 0; display:flex; gap:8px; align-items:center; }
+    .record-info { flex:1; min-width:0; overflow-wrap:anywhere; font-size:14px; line-height:1.7; }
+    .record-info small { display:block; color:var(--muted); }
+    .record button { min-width:44px; padding:0 10px; }
+    .backup-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .backup-actions button { flex:1; padding:0 12px; }
+    .device-note { color:var(--muted); font-size:11px; line-height:1.7; }
+    #save-message { font-size:12px; line-height:1.6; color:var(--accent); }
     @media(prefers-color-scheme:light) { :root { --bg:#f5f7f3; --card:#fff; --field:#f1f5ef; --text:#17241c; --muted:#637468; --line:#dbe4d8; --accent:#267b40; --ink:#fff; } }
     @media(max-height:740px) { .earnings { padding:28px 0; } .money { margin-top:14px; } .time { margin-top:19px; } }
   </style>
 </head>
 <body>
 <main>
-  <header><h1>알바 급여 타이머</h1><span class="tag">TIME IS MONEY</span></header>
+  <header><h1>알바 급여 타이머</h1><button type="button" id="open-records" class="secondary header-button">기록</button></header>
   <section class="earnings" aria-label="현재까지의 급여">
     <div class="status" role="status"><span class="dot" aria-hidden="true"></span><span id="status">시작할 준비</span></div>
     <output id="money" class="money" aria-label="누적 급여">₩0</output>
     <p id="per-second" class="per-second">+ 초당 0.0원</p>
     <div class="time"><span class="time-label">근무 시간</span><span id="elapsed">00:00:00</span></div>
+  </section>
+  <section class="saved-jobs" aria-label="저장한 알바">
+    <div id="job-list" class="job-list"></div>
+    <div class="job-save"><label>알바 이름<input id="job-name" maxlength="60" placeholder="카페, 과외" autocomplete="off"></label><button type="button" id="save-job" class="secondary">알바 저장</button></div>
   </section>
   <section id="editor" class="card" aria-label="급여 조건 설정">
     <div class="segments" role="group" aria-label="급여 계산 방식">
@@ -92,36 +122,63 @@
   </section>
   <button type="button" id="summary" class="summary" hidden><span><small id="summary-mode">급여 조건</small><strong id="summary-rate"></strong></span><span id="edit-hint" class="edit">조건 수정 ↗</span></button>
   <div class="actions"><button type="button" id="toggle" class="primary" disabled>시작</button><button type="button" id="reset" class="secondary" disabled>초기화</button></div>
+  <button type="button" id="finish" class="secondary" hidden>근무 종료·저장</button>
+  <p id="save-message" role="status" hidden></p>
+  <div id="delete-confirm" class="confirm" role="group" aria-label="삭제 확인" hidden><p id="delete-question"></p><div class="confirm-actions"><button type="button" id="cancel-delete" class="secondary">취소</button><button type="button" id="accept-delete" class="primary">삭제</button></div></div>
   <div id="confirm" class="confirm" role="group" aria-label="초기화 확인" hidden><p>근무 시간과 누적 급여를 초기화할까요?<br>입력한 급여 조건은 유지됩니다.</p><div class="confirm-actions"><button type="button" id="cancel-reset" class="secondary">취소</button><button type="button" id="confirm-reset" class="primary">초기화</button></div></div>
   <p id="storage-note" role="status" hidden>이 브라우저에서 저장할 수 없어 앱을 닫으면 기록이 사라질 수 있어요.</p>
+  <p class="device-note">데이터는 이 기기에만 저장됩니다. Safari 홈 화면 앱을 삭제하면 데이터가 사라지므로 백업을 권장해요.</p>
+  <dialog id="records-sheet" aria-labelledby="records-title">
+    <header><h2 id="records-title">근무 기록</h2><button type="button" id="close-records" class="secondary header-button">닫기</button></header>
+    <label>알바별 보기<select id="record-filter"><option value="">전체 알바</option></select></label>
+    <div class="totals"><div id="month-total"></div><div id="all-total"></div></div>
+    <div id="record-list"></div>
+    <div id="record-delete-slot"></div>
+    <div class="backup-actions"><button type="button" id="export-data" class="secondary">내보내기</button><button type="button" id="import-data" class="secondary">가져오기</button></div>
+    <input type="file" id="import-file" accept="application/json,.json" hidden>
+    <p id="backup-message" role="status"></p>
+    <p class="device-note">알바와 근무 기록을 JSON으로 백업합니다. 가져오기는 기존 자료에 합치며 같은 ID는 중복 저장하지 않습니다.<br>데이터는 이 기기에만 저장됩니다. Safari 홈 화면 앱 삭제 시 사라지므로 백업을 권장해요.</p>
+  </dialog>
   <footer>시간이 쌓이면, 급여도 차곡차곡.<br>홈 화면에 추가하면 앱처럼 사용할 수 있어요.</footer>
 </main>
 <script src="rate.js"></script>
+<script src="store.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const inputIds = ['hourly', 'sessionHours', 'sessions', 'sessionPay', 'weeklyHours', 'weeklyPay'];
 const names = { hourly:'시급', session:'회당', weekly:'주 단위' };
-const KEY = 'paytimer-state-v1';
+const KEY = 'paytimer-state-v2';
+let data = { jobs:[], records:[] }, selectedJobId = null, sessionStartAt = null, pendingDelete = null;
 const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits:2 });
 const won = new Intl.NumberFormat('ko-KR', { maximumFractionDigits:0 });
 let mode = 'hourly', accumulatedMs = 0, startedAt = null, editing = true, wakeLock = null, wakePending = false;
 function inputs() { return Object.fromEntries(inputIds.map(id => [id, $(id).value])); }
 function rate() { return PayRate.wonPerSecond(mode, inputs()); }
 function elapsedMs() { return accumulatedMs + (startedAt === null ? 0 : Math.max(0, Date.now() - startedAt)); }
-function persist() {
-  try { localStorage.setItem(KEY, JSON.stringify({ mode, inputs:inputs(), accumulatedMs, startedAt })); $('storage-note').hidden = true; }
-  catch (_) { $('storage-note').hidden = false; }
+function persist(nextData = data) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ mode, inputs:inputs(), accumulatedMs, startedAt, sessionStartAt, selectedJobId, jobDraft:$('job-name').value, ...nextData }));
+    $('storage-note').hidden = true;
+    return true;
+  } catch (_) { $('storage-note').hidden = false; return false; }
 }
 function restore() {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY));
-    if (!saved || !Object.hasOwn(names, saved.mode)) return;
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (_) { /* Fall back to the previous timer save. */ }
+    if (!saved || typeof saved !== 'object') saved = JSON.parse(localStorage.getItem('paytimer-state-v1'));
+    if (!saved) return;
+    data = PayStore.normalizeData(saved);
+    selectedJobId = data.jobs.some(job => job.id === saved.selectedJobId) ? saved.selectedJobId : null;
+    if (!Object.hasOwn(names, saved.mode)) return;
     mode = saved.mode;
     for (const id of inputIds) if (typeof saved.inputs?.[id] === 'string') $(id).value = saved.inputs[id];
     accumulatedMs = Number.isFinite(saved.accumulatedMs) && saved.accumulatedMs >= 0 ? saved.accumulatedMs : 0;
     if (Number.isFinite(saved.startedAt) && saved.startedAt > 0 && Number.isFinite(rate())) startedAt = saved.startedAt;
+    sessionStartAt = Number.isFinite(saved.sessionStartAt) && saved.sessionStartAt > 0 ? saved.sessionStartAt : startedAt ?? (accumulatedMs > 0 ? Date.now() - accumulatedMs : null);
     editing = startedAt === null && accumulatedMs === 0;
+    $('job-name').value = typeof saved.jobDraft === 'string' ? saved.jobDraft.slice(0, 60) : data.jobs.find(job => job.id === selectedJobId)?.name || '';
   } catch (_) { /* An unavailable or damaged save must not prevent a new timer. */ }
 }
 async function syncWakeLock() {
@@ -141,6 +198,8 @@ function paint() {
   const elapsed = elapsedMs();
   const seconds = Math.floor(elapsed / 1000);
   const parts = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60];
+  $('finish').hidden = elapsed <= 0;
+  $('finish').disabled = !Number.isFinite(rate());
   $('elapsed').textContent = parts.map(n => String(n).padStart(2, '0')).join(':');
   const perSecond = rate();
   const earned = Number.isFinite(perSecond) ? Math.floor(elapsed / 1000 * perSecond) : 0;
@@ -165,13 +224,15 @@ function render() {
   $('toggle').textContent = running ? '일시정지' : accumulatedMs > 0 ? '이어서' : '시작';
   $('reset').disabled = !running && accumulatedMs === 0;
   $('status').textContent = running ? '급여가 쌓이고 있어요' : accumulatedMs > 0 ? '잠시 쉬는 중' : '시작할 준비';
+  renderJobs();
   paint();
 }
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
   if (startedAt !== null) return;
-  mode = button.dataset.mode; persist(); render();
+  selectedJobId = null; mode = button.dataset.mode; persist(); render();
 }));
 for (const id of inputIds) $(id).addEventListener('input', event => {
+  selectedJobId = null;
   const input = event.target;
   if (input.hasAttribute('data-money')) {
     const position = input.selectionStart ?? input.value.length;
@@ -188,18 +249,148 @@ for (const id of inputIds) $(id).addEventListener('input', event => {
 });
 $('toggle').addEventListener('click', () => {
   if (startedAt !== null) { accumulatedMs = elapsedMs(); startedAt = null; }
-  else { if (!Number.isFinite(rate())) return; startedAt = Date.now(); editing = false; document.activeElement?.blur(); }
+  else { if (!Number.isFinite(rate())) return; startedAt = Date.now(); if (sessionStartAt === null) sessionStartAt = startedAt; editing = false; document.activeElement?.blur(); }
   $('confirm').hidden = true; persist(); render(); void syncWakeLock();
 });
 $('summary').addEventListener('click', () => { if (startedAt === null) { editing = true; render(); document.querySelector('[data-fields="' + mode + '"] input').focus(); } });
 $('reset').addEventListener('click', () => { $('confirm').hidden = false; $('cancel-reset').focus(); });
 $('cancel-reset').addEventListener('click', () => { $('confirm').hidden = true; $('reset').focus(); });
 $('confirm-reset').addEventListener('click', () => {
-  accumulatedMs = 0; startedAt = null; editing = true; $('confirm').hidden = true;
+  accumulatedMs = 0; startedAt = null; sessionStartAt = null; editing = true; $('confirm').hidden = true;
   persist(); render(); void syncWakeLock(); $('toggle').focus();
 });
+function uid() { return globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + '-' + Math.random().toString(36).slice(2); }
+function message(text) { $('save-message').textContent = text; $('save-message').hidden = !text; }
+function makeButton(text, handler, className = 'secondary') {
+  const button = document.createElement('button');
+  button.type = 'button'; button.textContent = text; button.className = className;
+  button.addEventListener('click', handler);
+  return button;
+}
+function renderJobs() {
+  const running = startedAt !== null;
+  $('job-name').disabled = running;
+  $('save-job').disabled = running || !$('job-name').value.trim() || !Number.isFinite(rate());
+  $('job-list').replaceChildren();
+  for (const job of data.jobs) {
+    const chip = document.createElement('div'); chip.className = 'job-chip';
+    const load = makeButton(job.name, () => {
+      if (startedAt !== null) return;
+      mode = job.mode; selectedJobId = job.id; $('job-name').value = job.name;
+      for (const id of inputIds) $(id).value = job.inputs[id];
+      editing = true; persist(); render();
+    }, '');
+    load.disabled = running; load.setAttribute('aria-pressed', String(job.id === selectedJobId));
+    const remove = makeButton('×', () => askDelete('job', job.id, job.name), '');
+    remove.disabled = running; remove.setAttribute('aria-label', job.name + ' 삭제');
+    chip.append(load, remove); $('job-list').append(chip);
+  }
+}
+$('job-name').addEventListener('input', () => { selectedJobId = null; persist(); renderJobs(); });
+$('save-job').addEventListener('click', () => {
+  const name = $('job-name').value.trim();
+  if (startedAt !== null || !name || !Number.isFinite(rate())) return;
+  const job = { id:uid(), name, mode, inputs:inputs() };
+  const next = { ...data, jobs:[...data.jobs, job] };
+  const previous = selectedJobId; selectedJobId = job.id;
+  if (!persist(next)) { selectedJobId = previous; message('저장하지 못했어요. 내보내기로 백업해 주세요.'); return; }
+  data = next; message('알바를 저장했어요.'); renderJobs();
+});
+$('finish').addEventListener('click', () => {
+  const endTime = Date.now();
+  const workedMs = accumulatedMs + (startedAt === null ? 0 : Math.max(0, endTime - startedAt));
+  if (workedMs <= 0) return;
+  let record;
+  try { record = PayStore.createRecord({ id:uid(), jobName:$('job-name').value, startTime:sessionStartAt ?? endTime - workedMs,
+    endTime, workedMs, hourlyRate:PayRate.hourlyRate(mode, inputs()) }); }
+  catch (_) { message('급여 조건과 기기 시간을 확인해 주세요.'); return; }
+  const next = { ...data, records:[...data.records, record] };
+  const previous = { accumulatedMs, startedAt, sessionStartAt };
+  accumulatedMs = 0; startedAt = null; sessionStartAt = null;
+  if (!persist(next)) {
+    ({ accumulatedMs, startedAt, sessionStartAt } = previous);
+    message('저장하지 못해 타이머를 유지했어요. 저장 공간을 확인해 주세요.'); return;
+  }
+  data = next; editing = true; $('confirm').hidden = true;
+  message('근무 기록을 저장했어요.'); render(); void syncWakeLock();
+});
+function duration(ms) {
+  const seconds = Math.floor(ms / 1000);
+  return Math.floor(seconds / 3600) + '시간 ' + Math.floor(seconds / 60) % 60 + '분 ' + seconds % 60 + '초';
+}
+function renderRecords() {
+  const filter = $('record-filter').value;
+  const labels = [...new Set(data.records.map(record => record.jobName))].sort();
+  $('record-filter').replaceChildren(new Option('전체 알바', ''), ...labels.map(name => new Option(name, name)));
+  $('record-filter').value = labels.includes(filter) ? filter : '';
+  const records = data.records.filter(record => !$('record-filter').value || record.jobName === $('record-filter').value);
+  for (const [id, title, month] of [['month-total', '이번 달', new Date()], ['all-total', '전체', null]]) {
+    const total = PayStore.totals(records, month);
+    $(id).textContent = title + ' · ' + duration(total.workedMs) + ' · ₩' + won.format(total.amount);
+  }
+  $('record-list').replaceChildren();
+  if (!records.length) $('record-list').textContent = '저장된 근무 기록이 없어요.';
+  for (const record of [...records].sort((a, b) => b.endTime - a.endTime)) {
+    const row = document.createElement('div'); row.className = 'record';
+    const info = document.createElement('div'); info.className = 'record-info';
+    const date = document.createElement('small');
+    date.textContent = new Date(record.endTime).toLocaleString('ko-KR', { year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const title = document.createElement('strong'); title.textContent = record.jobName;
+    const amount = document.createElement('div'); amount.textContent = duration(record.workedMs) + ' · ₩' + won.format(record.amount);
+    info.append(date, title, amount);
+    const remove = makeButton('×', () => askDelete('record', record.id, record.jobName));
+    remove.setAttribute('aria-label', record.jobName + ' 근무 기록 삭제');
+    row.append(info, remove); $('record-list').append(row);
+  }
+}
+function askDelete(type, id, name) {
+  pendingDelete = { type, id };
+  const box = $('delete-confirm');
+  if (type === 'record') $('record-delete-slot').append(box);
+  else $('save-message').after(box);
+  $('delete-question').textContent = name + (type === 'job' ? ' 알바를 삭제할까요? 근무 기록은 유지됩니다.' : ' 근무 기록을 삭제할까요?');
+  box.hidden = false; $('cancel-delete').focus();
+}
+function cancelDelete() { pendingDelete = null; $('delete-confirm').hidden = true; }
+$('cancel-delete').addEventListener('click', cancelDelete);
+$('accept-delete').addEventListener('click', () => {
+  if (!pendingDelete) return;
+  const { type, id } = pendingDelete;
+  if (type === 'job' && startedAt !== null) { cancelDelete(); return; }
+  const field = type === 'job' ? 'jobs' : 'records';
+  const next = { ...data, [field]:data[field].filter(item => item.id !== id) };
+  const previous = selectedJobId;
+  if (type === 'job' && selectedJobId === id) selectedJobId = null;
+  if (!persist(next)) { selectedJobId = previous; return; }
+  data = next; cancelDelete(); renderJobs(); renderRecords();
+  if ($('records-sheet').open) $('close-records').focus(); else $('save-job').focus();
+});
+$('open-records').addEventListener('click', () => { cancelDelete(); renderRecords(); $('records-sheet').showModal(); });
+$('close-records').addEventListener('click', () => $('records-sheet').close());
+$('records-sheet').addEventListener('close', () => { cancelDelete(); $('save-message').after($('delete-confirm')); });
+$('record-filter').addEventListener('change', renderRecords);
+$('export-data').addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ version:1, ...data }, null, 2)], { type:'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = 'paytimer-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  $('backup-message').textContent = '백업 파일 다운로드를 요청했어요.';
+});
+$('import-data').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 10 * 1024 * 1024) throw new Error('10MB 이하의 백업 파일을 선택해 주세요.');
+    const next = PayStore.mergeData(data, JSON.parse(await file.text()));
+    if (!persist(next)) throw new Error('기기에 저장하지 못했어요. 기존 자료는 유지됩니다.');
+    data = next; renderJobs(); renderRecords();
+    $('backup-message').textContent = '백업을 가져왔어요. 같은 ID는 중복 저장하지 않았어요.';
+  } catch (error) { $('backup-message').textContent = error instanceof SyntaxError ? 'JSON 백업 파일을 확인해 주세요.' : error.message; }
+  finally { event.target.value = ''; }
+});
+
 document.addEventListener('visibilitychange', () => { persist(); paint(); void syncWakeLock(); });
-window.addEventListener('pagehide', persist);
+window.addEventListener('pagehide', () => persist());
 window.addEventListener('pageshow', () => { render(); void syncWakeLock(); });
 restore(); render(); void syncWakeLock();
 setInterval(() => { if (startedAt !== null && document.visibilityState === 'visible') paint(); }, 100);

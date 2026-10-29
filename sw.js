@@ -1,6 +1,6 @@
 'use strict';
-const CACHE = 'paytimer-v1';
-const FILES = ['./', './index.html', './rate.js', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
+const CACHE = 'paytimer-v2';
+const FILES = ['./', './index.html', './rate.js', './store.js', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
 });
