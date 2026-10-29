@@ -63,6 +63,12 @@
     .job-chip button { background:var(--field); color:var(--text); padding:0 12px; min-width:44px; overflow-wrap:anywhere; }
     .job-chip button:first-child { min-width:44px; flex:1; text-align:left; }
     .job-chip button[aria-pressed="true"] { color:var(--accent); font-weight:700; }
+    .name-editor { display:flex; flex-wrap:wrap; gap:8px; padding:8px; width:100%; min-width:0; }
+    .name-editor label { width:100%; }
+    .name-editor input { font-size:16px; padding:0 8px; background:var(--field); border:1px solid var(--line); margin-top:5px; }
+    .name-editor button { padding:0 12px; border-radius:10px; }
+    .name-editor p { width:100%; margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+    #job-name-note { color:var(--muted); font-size:12px; line-height:1.6; }
     .job-save { display:flex; gap:8px; align-items:center; }
     .job-save label { flex:1; min-width:0; }
     .job-save input { font-size:16px; padding:0 10px; background:var(--field); border:1px solid var(--line); margin-top:5px; }
@@ -99,6 +105,7 @@
   <section class="saved-jobs" aria-label="저장한 알바">
     <div id="job-list" class="job-list"></div>
     <div class="job-save"><label>알바 이름<input id="job-name" maxlength="60" placeholder="카페, 과외" autocomplete="off"></label><button type="button" id="save-job" class="secondary">알바 저장</button></div>
+    <p id="job-name-note" role="status" hidden></p>
   </section>
   <section id="editor" class="card" aria-label="급여 조건 설정">
     <div class="segments" role="group" aria-label="급여 계산 방식">
@@ -150,6 +157,7 @@ const inputIds = ['hourly', 'sessionHours', 'sessions', 'sessionPay', 'weeklyHou
 const names = { hourly:'시급', session:'회당', weekly:'주 단위' };
 const KEY = 'paytimer-state-v2';
 let data = { jobs:[], records:[] }, selectedJobId = null, sessionStartAt = null, pendingDelete = null;
+let persistenceRequested = false;
 const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits:2 });
 const won = new Intl.NumberFormat('ko-KR', { maximumFractionDigits:0 });
 let mode = 'hourly', accumulatedMs = 0, startedAt = null, editing = true, wakeLock = null, wakePending = false;
@@ -159,6 +167,10 @@ function elapsedMs() { return accumulatedMs + (startedAt === null ? 0 : Math.max
 function persist(nextData = data) {
   try {
     localStorage.setItem(KEY, JSON.stringify({ mode, inputs:inputs(), accumulatedMs, startedAt, sessionStartAt, selectedJobId, jobDraft:$('job-name').value, ...nextData }));
+    if (!persistenceRequested && navigator.storage?.persist) {
+      persistenceRequested = true;
+      try { Promise.resolve(navigator.storage.persist()).catch(() => {}); } catch (_) {}
+    }
     $('storage-note').hidden = true;
     return true;
   } catch (_) { $('storage-note').hidden = false; return false; }
@@ -267,10 +279,40 @@ function makeButton(text, handler, className = 'secondary') {
   button.addEventListener('click', handler);
   return button;
 }
+function nameEditor(name, save, cancel, duplicate = () => false) {
+  const form = document.createElement('form'); form.className = 'name-editor';
+  const label = document.createElement('label'); label.textContent = '알바 이름';
+  const input = document.createElement('input'); input.value = name; input.maxLength = 60;
+  label.append(input);
+  const note = document.createElement('p'); note.setAttribute('role', 'status');
+  const submit = makeButton('저장', () => {}); submit.type = 'submit';
+  const update = () => {
+    submit.disabled = !input.value.trim();
+    note.textContent = !input.value.trim() ? '이름을 입력해 주세요.' : duplicate(input.value.trim()) ? '같은 이름의 알바가 있어요. 그대로 저장할 수 있어요.' : '';
+  };
+  input.addEventListener('input', update);
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!input.value.trim()) { update(); input.focus(); return; }
+    try { save(input.value); } catch (error) { note.textContent = error.message; }
+  });
+  form.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !event.isComposing) { event.preventDefault(); event.stopPropagation(); cancel(); }
+  });
+  form.append(label, submit, makeButton('취소', cancel), note); update();
+  return form;
+}
+function saveRename(next) {
+  if (!persist(next)) throw new Error('저장하지 못했어요. 저장 공간을 확인해 주세요.');
+  data = next;
+}
 function renderJobs() {
   const running = startedAt !== null;
   $('job-name').disabled = running;
   $('save-job').disabled = running || !$('job-name').value.trim() || !Number.isFinite(rate());
+  const duplicate = data.jobs.some(job => job.id !== selectedJobId && job.name === $('job-name').value.trim());
+  $('job-name-note').hidden = !duplicate;
+  $('job-name-note').textContent = duplicate ? '같은 이름의 알바가 있어요. 그대로 저장할 수 있어요.' : '';
   $('job-list').replaceChildren();
   for (const job of data.jobs) {
     const chip = document.createElement('div'); chip.className = 'job-chip';
@@ -281,9 +323,21 @@ function renderJobs() {
       editing = true; persist(); render();
     }, '');
     load.disabled = running; load.setAttribute('aria-pressed', String(job.id === selectedJobId));
+    const rename = makeButton('✎', () => {
+      const cancel = () => { renderJobs(); $('job-name').focus(); };
+      const form = nameEditor(job.name, name => {
+        const next = PayStore.renameJob(data, job.id, name);
+        const previous = $('job-name').value;
+        if (selectedJobId === job.id) $('job-name').value = name.trim();
+        try { saveRename(next); } catch (error) { $('job-name').value = previous; throw error; }
+        renderJobs(); renderRecords(); $('job-name').focus(); message('알바 이름과 연결된 근무 기록을 수정했어요.');
+      }, cancel, name => data.jobs.some(item => item.id !== job.id && item.name === name));
+      chip.replaceChildren(form); form.querySelector('input').focus();
+    }, '');
+    rename.setAttribute('aria-label', job.name + ' 이름 수정');
     const remove = makeButton('×', () => askDelete('job', job.id, job.name), '');
     remove.disabled = running; remove.setAttribute('aria-label', job.name + ' 삭제');
-    chip.append(load, remove); $('job-list').append(chip);
+    chip.append(load, rename, remove); $('job-list').append(chip);
   }
 }
 $('job-name').addEventListener('input', () => { selectedJobId = null; persist(); renderJobs(); });
@@ -301,7 +355,7 @@ $('finish').addEventListener('click', () => {
   const workedMs = accumulatedMs + (startedAt === null ? 0 : Math.max(0, endTime - startedAt));
   if (workedMs <= 0) return;
   let record;
-  try { record = PayStore.createRecord({ id:uid(), jobName:$('job-name').value, startTime:sessionStartAt ?? endTime - workedMs,
+  try { record = PayStore.createRecord({ id:uid(), jobId:selectedJobId, jobName:$('job-name').value, startTime:sessionStartAt ?? endTime - workedMs,
     endTime, workedMs, hourlyRate:PayRate.hourlyRate(mode, inputs()) }); }
   catch (_) { message('급여 조건과 기기 시간을 확인해 주세요.'); return; }
   const next = { ...data, records:[...data.records, record] };
@@ -338,9 +392,18 @@ function renderRecords() {
     const title = document.createElement('strong'); title.textContent = record.jobName;
     const amount = document.createElement('div'); amount.textContent = duration(record.workedMs) + ' · ₩' + won.format(record.amount);
     info.append(date, title, amount);
+    const rename = makeButton('✎', () => {
+      const cancel = () => { renderRecords(); $('close-records').focus(); };
+      const form = nameEditor(record.jobName, name => {
+        saveRename(PayStore.renameRecord(data, record.id, name));
+        renderRecords(); $('close-records').focus();
+      }, cancel);
+      title.replaceWith(form); rename.disabled = true; form.querySelector('input').focus();
+    });
+    rename.setAttribute('aria-label', record.jobName + ' 근무 기록 이름 수정');
     const remove = makeButton('×', () => askDelete('record', record.id, record.jobName));
     remove.setAttribute('aria-label', record.jobName + ' 근무 기록 삭제');
-    row.append(info, remove); $('record-list').append(row);
+    row.append(info, rename, remove); $('record-list').append(row);
   }
 }
 function askDelete(type, id, name) {
